@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    touch-action: manipulation;
+  }
+
+  /* Prevent involuntary iOS zoom on input focus on mobile devices */
+  @media (max-width: 640px) {
+    input[type="text"],
+    input[type="url"],
+    input[type="search"],
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Safe area support for iOS notches, home indicators and foldable hinges */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 16px);
+  }
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 0px);
+  }
+}
+

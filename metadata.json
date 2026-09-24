@@ -1,0 +1,6 @@
+{
+  "name": "QR Code & Raccourcisseur d'URL",
+  "description": "Générez des QR codes personnalisés et raccourcissez vos URL en un clic.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
