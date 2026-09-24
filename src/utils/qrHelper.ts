@@ -87,6 +87,28 @@ export function evaluateScanReliability(options: QROptions): ScanReliabilityResu
     }
   }
 
+  // Background image safety evaluation
+  if (options.backgroundImage && options.backgroundImage.src) {
+    const bg = options.backgroundImage;
+    if (bg.opacity > 0.65 && (!bg.contrastVeil || bg.contrastVeil === "none")) {
+      score -= 25;
+      tips.push("Image de fond très opaque sans voile : réduisez l'opacité (20-45%) ou activez un voile protecteur pour garantir un scan instantané.");
+    } else if (bg.opacity > 0.45 && (!bg.contrastVeil || bg.contrastVeil === "none")) {
+      score -= 10;
+      tips.push("Astuce image de fond : un léger voile clair augmente la réactivité de détection par faible éclairage.");
+    }
+
+    if (bg.isolateEyes === false) {
+      score -= 20;
+      tips.push("Yeux de repérage non isolés : nous recommandons d'activer l'isolation des 3 yeux pour un verrouillage instantané par l'appareil photo.");
+    }
+
+    if (options.errorCorrectionLevel === "L") {
+      score -= 15;
+      tips.push("Image de fond avec tolérance L : basculez sur Q (25%) ou H (30%) pour compenser le bruit visuel.");
+    }
+  }
+
   score = Math.max(10, Math.min(100, score));
 
   let rating: "optimal" | "bon" | "moyen" | "critique" = "optimal";
@@ -149,6 +171,26 @@ function isInCenterIconZone(r: number, c: number, size: number, radiusModules: n
     c >= center - radiusModules &&
     c <= center + radiusModules
   );
+}
+
+// Helper image cache for instant canvas rerendering
+const imageCache = new Map<string, HTMLImageElement>();
+
+export function loadImage(src: string): Promise<HTMLImageElement> {
+  const cached = imageCache.get(src);
+  if (cached && cached.complete && cached.naturalWidth > 0) {
+    return Promise.resolve(cached);
+  }
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      imageCache.set(src, img);
+      resolve(img);
+    };
+    img.onerror = (e) => reject(e);
+    img.src = src;
+  });
 }
 
 /**
@@ -225,6 +267,85 @@ export async function renderQRToCanvas(
 
   const qrOffsetX = extraHorizontal + marginModules * cellSize;
   const qrOffsetY = extraTop + marginModules * cellSize;
+
+  // Background Image Rendering with Scannability Guards
+  if (options.backgroundImage && options.backgroundImage.src) {
+    try {
+      const img = await loadImage(options.backgroundImage.src);
+      ctx.save();
+
+      const drawX = extraHorizontal;
+      const drawY = extraTop;
+      const drawW = baseSize;
+      const drawH = baseSize;
+
+      // Optional blur filter
+      if (options.backgroundImage.blur && options.backgroundImage.blur > 0) {
+        ctx.filter = `blur(${options.backgroundImage.blur}px)`;
+      }
+
+      // Safe opacity
+      const alpha = Math.max(0.05, Math.min(1.0, options.backgroundImage.opacity ?? 0.35));
+      ctx.globalAlpha = alpha;
+
+      const imgW = img.naturalWidth || img.width;
+      const imgH = img.naturalHeight || img.height;
+      const fit = options.backgroundImage.fit || "cover";
+
+      let sx = 0;
+      let sy = 0;
+      let sWidth = imgW;
+      let sHeight = imgH;
+
+      if (fit === "cover") {
+        const imgRatio = imgW / imgH;
+        const targetRatio = drawW / drawH;
+        if (imgRatio > targetRatio) {
+          sWidth = imgH * targetRatio;
+          sx = (imgW - sWidth) / 2;
+        } else {
+          sHeight = imgW / targetRatio;
+          sy = (imgH - sHeight) / 2;
+        }
+      }
+
+      ctx.drawImage(img, sx, sy, sWidth, sHeight, drawX, drawY, drawW, drawH);
+      ctx.restore();
+
+      // Protective contrast veil overlay
+      const veil = options.backgroundImage.contrastVeil;
+      if (veil && veil !== "none") {
+        ctx.save();
+        ctx.fillStyle = veil === "dark" ? "#000000" : options.color.light;
+        ctx.globalAlpha = options.backgroundImage.veilOpacity ?? 0.35;
+        ctx.fillRect(drawX, drawY, drawW, drawH);
+        ctx.restore();
+      }
+
+      // Protective safety halos behind the 3 finder pattern eyes to guarantee 100% scan detection
+      if (options.backgroundImage.isolateEyes !== false) {
+        const finderPositions = [
+          { r: 0, c: 0 },
+          { r: 0, c: matrixSize - 7 },
+          { r: matrixSize - 7, c: 0 },
+        ];
+        finderPositions.forEach((pos) => {
+          const fx = qrOffsetX + pos.c * cellSize;
+          const fy = qrOffsetY + pos.r * cellSize;
+          const fSize = 7 * cellSize;
+          const pad = cellSize * 0.45;
+          ctx.save();
+          ctx.fillStyle = options.color.light;
+          ctx.beginPath();
+          ctx.roundRect(fx - pad, fy - pad, fSize + pad * 2, fSize + pad * 2, cellSize * 0.8);
+          ctx.fill();
+          ctx.restore();
+        });
+      }
+    } catch (imgErr) {
+      console.warn("Failed to render background image:", imgErr);
+    }
+  }
 
   // Gradient or solid style for modules & eyes
   let fillPattern: string | CanvasGradient = options.color.dark;
@@ -641,10 +762,38 @@ export async function generateQRSvgString(
     `;
   }
 
+  // Background Image in SVG
+  let bgImageSvg = "";
+  if (options.backgroundImage && options.backgroundImage.src) {
+    const bg = options.backgroundImage;
+    const opacity = bg.opacity ?? 0.35;
+    const veil = bg.contrastVeil;
+    const veilOpacity = bg.veilOpacity ?? 0.35;
+    const veilColor = veil === "dark" ? "#000000" : options.color.light;
+
+    let eyeHalos = "";
+    if (bg.isolateEyes !== false) {
+      finderPositions.forEach((pos) => {
+        const fx = qrOffsetX + pos.c * cellSize;
+        const fy = qrOffsetY + pos.r * cellSize;
+        const fSize = 7 * cellSize;
+        const pad = cellSize * 0.45;
+        eyeHalos += `<rect x="${(fx - pad).toFixed(2)}" y="${(fy - pad).toFixed(2)}" width="${(fSize + pad * 2).toFixed(2)}" height="${(fSize + pad * 2).toFixed(2)}" rx="${(cellSize * 0.8).toFixed(2)}" fill="${options.color.light}" />\n`;
+      });
+    }
+
+    bgImageSvg = `
+      <image href="${bg.src}" x="0" y="0" width="${baseSvgSize}" height="${baseSvgSize}" opacity="${opacity}" preserveAspectRatio="xMidYMid slice" />
+      ${veil && veil !== "none" ? `<rect width="100%" height="100%" fill="${veilColor}" opacity="${veilOpacity}" />` : ""}
+      ${eyeHalos}
+    `;
+  }
+
   return `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${baseSvgSize} ${baseSvgSize}" width="${baseSvgSize}" height="${baseSvgSize}">
       ${defs}
       <rect width="100%" height="100%" fill="${options.color.light}" />
+      ${bgImageSvg}
       ${modulesSvg}
       ${findersSvg}
       ${badgeSvg}

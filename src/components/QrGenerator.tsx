@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Wand2,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   QROptions,
@@ -24,6 +25,7 @@ import {
   QREyeStyle,
   QRGradientType,
   QRFrameStyle,
+  QRBackgroundImage,
 } from "../types";
 import {
   renderQRToCanvas,
@@ -33,6 +35,7 @@ import {
   evaluateScanReliability,
 } from "../utils/qrHelper";
 import { ColorCustomizationBanner } from "./ColorCustomizationBanner";
+import { BackgroundImageCustomizer } from "./BackgroundImageCustomizer";
 
 interface QrGeneratorProps {
   initialUrl?: string;
@@ -53,6 +56,7 @@ interface FancyPreset {
   centerIcon?: string;
   frameStyle?: QRFrameStyle;
   frameText?: string;
+  backgroundImage?: QRBackgroundImage;
 }
 
 const FANCY_THEMES: FancyPreset[] = [
@@ -66,6 +70,26 @@ const FANCY_THEMES: FancyPreset[] = [
     dotStyle: "dots",
     eyeStyle: "rounded",
     centerIcon: "⚡",
+  },
+  {
+    name: "Badge Collaborateur",
+    tagline: "Photo Staff en filigrane discret",
+    dark: "#0f172a",
+    darkSecondary: "#1e3a8a",
+    light: "#ffffff",
+    gradientType: "linear-diagonal",
+    dotStyle: "rounded",
+    eyeStyle: "rounded",
+    centerIcon: "",
+    backgroundImage: {
+      src: "/samples/sample_staff_portrait_1790276175651.jpg",
+      name: "Photo Staff / Profil",
+      opacity: 0.35,
+      contrastVeil: "light",
+      veilOpacity: 0.35,
+      isolateEyes: true,
+      fit: "cover",
+    },
   },
   {
     name: "Sunset Glow",
@@ -189,7 +213,9 @@ export function QrGenerator({
     width: 320,
   });
 
-  const [activeTab, setActiveTab] = useState<"effects" | "colors" | "badge" | "frame" | "advanced">("effects");
+  const [activeTab, setActiveTab] = useState<
+    "effects" | "image" | "colors" | "badge" | "frame" | "advanced"
+  >("effects");
   const [customTextBadge, setCustomTextBadge] = useState("");
   const [downloadResolution, setDownloadResolution] = useState<number>(1024);
   const [copied, setCopied] = useState(false);
@@ -295,8 +321,10 @@ export function QrGenerator({
       dotStyle: theme.dotStyle,
       eyeStyle: theme.eyeStyle,
       centerIcon: theme.centerIcon || "",
-      // Auto-elevate error correction to ensure 100% scan reliability with badge
-      errorCorrectionLevel: theme.centerIcon ? "Q" : prev.errorCorrectionLevel,
+      backgroundImage: theme.backgroundImage,
+      // Auto-elevate error correction to ensure 100% scan reliability with badge or background image
+      errorCorrectionLevel:
+        theme.centerIcon || theme.backgroundImage ? "Q" : prev.errorCorrectionLevel,
     }));
     onToast("info", `Thème « ${theme.name} » appliqué`);
   };
@@ -311,6 +339,17 @@ export function QrGenerator({
         darkSecondary: prev.color.darkSecondary ? "#312e81" : "#0f172a",
         light: "#ffffff",
       },
+      errorCorrectionLevel:
+        prev.backgroundImage?.src || prev.centerIcon ? "Q" : prev.errorCorrectionLevel,
+      backgroundImage: prev.backgroundImage
+        ? {
+            ...prev.backgroundImage,
+            opacity: Math.min(prev.backgroundImage.opacity ?? 0.35, 0.35),
+            contrastVeil: "light",
+            veilOpacity: 0.35,
+            isolateEyes: true,
+          }
+        : undefined,
     }));
     onToast("success", "Contraste optimisé automatiquement pour un scan infaillible !");
   };
@@ -459,6 +498,22 @@ export function QrGenerator({
             </button>
 
             <button
+              id="tab-bg-image"
+              onClick={() => setActiveTab("image")}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                activeTab === "image"
+                  ? "bg-white text-indigo-700 shadow-xs border border-slate-200 font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Image de fond</span>
+              {options.backgroundImage?.src && (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-200 ml-0.5" />
+              )}
+            </button>
+
+            <button
               onClick={() => setActiveTab("colors")}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 activeTab === "colors"
@@ -584,6 +639,15 @@ export function QrGenerator({
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* TAB IMAGE DE FOND */}
+            {activeTab === "image" && (
+              <BackgroundImageCustomizer
+                options={options}
+                onOptionsChange={setOptions}
+                onToast={onToast}
+              />
             )}
 
             {/* TAB 2: DÉGRADÉS & COULEURS */}
@@ -967,6 +1031,33 @@ export function QrGenerator({
               className="max-w-full max-h-full h-auto w-auto object-contain rounded-lg drop-shadow-xs"
             />
           </div>
+
+          {/* Background image active info strip or quick add link */}
+          {options.backgroundImage?.src ? (
+            <div className="w-full mt-2.5 px-3 py-1.5 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between text-xs">
+              <span className="font-semibold text-indigo-900 truncate flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="truncate">
+                  Fond : {options.backgroundImage.name || "Actif"} (
+                  {Math.round((options.backgroundImage.opacity ?? 0.35) * 100)}%)
+                </span>
+              </span>
+              <button
+                onClick={() => setActiveTab("image")}
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-bold underline shrink-0 ml-2"
+              >
+                Ajuster
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setActiveTab("image")}
+              className="mt-2 text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 hover:underline transition-colors"
+            >
+              <ImageIcon className="w-3 h-3" />
+              <span>Intégrer une photo / image en arrière-plan ?</span>
+            </button>
+          )}
 
           {/* Scannability Live Gauge & ISO Certification */}
           <div className="w-full mt-5 p-3.5 rounded-xl border flex flex-col gap-2 bg-slate-50/70 border-slate-200/90">
