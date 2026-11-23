@@ -51,6 +51,7 @@ function saveFileLinks() {
 
 export async function initDatabase(): Promise<void> {
   const dbUrl = process.env.DATABASE_URL?.trim();
+  const isServerless = Boolean(process.env.NETLIFY || process.env.VERCEL);
 
   if (dbUrl) {
     try {
@@ -86,9 +87,16 @@ export async function initDatabase(): Promise<void> {
       return;
     } catch (err) {
       console.error("Failed to connect to PostgreSQL. Falling back to local file storage:", err);
+      if (isServerless) {
+        throw new Error("DATABASE_URL is required and must point to a reachable PostgreSQL database.");
+      }
       usePostgres = false;
       pool = null;
     }
+  }
+
+  if (isServerless) {
+    throw new Error("DATABASE_URL is required when running on Netlify or Vercel.");
   }
 
   // Fallback to file storage
