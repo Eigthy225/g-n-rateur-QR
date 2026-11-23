@@ -3,17 +3,17 @@ import app from "../../server/app";
 import { initDatabase } from "../../server/db";
 
 let databaseReady: Promise<void> | undefined;
-const handler = serverless(app);
+const expressHandler = serverless(app);
 
 function initializeDatabase() {
   databaseReady ??= initDatabase();
   return databaseReady;
 }
 
-export const handler = async (event: Parameters<typeof handler>[0], context: Parameters<typeof handler>[1]) => {
+export const handler = async (event: any, context: any) => {
   try {
     await initializeDatabase();
-    return handler(event, context);
+    return expressHandler(event, context);
   } catch (error) {
     console.error("Database initialization failed:", error);
     return {
