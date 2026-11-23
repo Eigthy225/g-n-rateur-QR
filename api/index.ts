@@ -1,13 +1,22 @@
 import type { Request, Response } from "express";
-import app from "../server";
+import app from "../server/app";
 import { initDatabase } from "../server/db";
 
-let dbInitialized = false;
+let databaseReady: Promise<void> | undefined;
+
+function initializeDatabase() {
+  databaseReady ??= initDatabase();
+  return databaseReady;
+}
 
 export default async function handler(req: Request, res: Response) {
-  if (!dbInitialized) {
-    await initDatabase();
-    dbInitialized = true;
+  try {
+    await initializeDatabase();
+    return app(req, res);
+  } catch (error) {
+    console.error("Database initialization failed:", error);
+    return res.status(500).json({
+      error: "Le service de liens est indisponible. Vérifiez la variable DATABASE_URL.",
+    });
   }
-  return app(req, res);
 }
