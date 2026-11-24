@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import pg from "pg";
+import { getConnectionString } from "@netlify/database";
 
 const { Pool } = pg;
 
@@ -49,9 +50,24 @@ function saveFileLinks() {
   }
 }
 
-export async function initDatabase(): Promise<void> {
-  const dbUrl = process.env.DATABASE_URL?.trim();
-  const isServerless = Boolean(process.env.NETLIFY || process.env.VERCEL);
+function getDatabaseUrl(): string | undefined {
+  const configuredUrl = process.env.DATABASE_URL?.trim() || process.env.NETLIFY_DB_URL?.trim();
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  // Netlify Database chooses the appropriate production or Deploy Preview
+  // branch automatically. Outside of Netlify (for example during local dev),
+  // it may not be configured and simply falls back to local file storage.
+  try {
+    return getConnectionString()?.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function initDatabase(options: { requirePersistentDatabase?: boolean } = {}): Promise<void> {
+  const dbUrl = getDatabaseUrl();
 
   if (dbUrl) {
     try {
@@ -64,39 +80,29 @@ export async function initDatabase(): Promise<void> {
         connectionTimeoutMillis: 10000,
       });
 
-      // Test connection and create table if not exists
+      // Test the connection. The schema is managed by versioned migrations in
+      // netlify/database/migrations (or by schema.sql for another PostgreSQL provider).
       const client = await pool.connect();
       try {
-        await client.query(`
-          CREATE TABLE IF NOT EXISTS links (
-            id VARCHAR(64) PRIMARY KEY,
-            original_url TEXT NOT NULL,
-            short_code VARCHAR(64) UNIQUE NOT NULL,
-            title VARCHAR(255),
-            clicks INTEGER NOT NULL DEFAULT 0,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            last_clicked_at TIMESTAMP WITH TIME ZONE
-          );
-          CREATE INDEX IF NOT EXISTS idx_links_short_code ON links (short_code);
-        `);
+        await client.query("SELECT 1");
         usePostgres = true;
-        console.log("PostgreSQL database connected and schema initialized successfully!");
+        console.log("PostgreSQL database connected successfully!");
       } finally {
         client.release();
       }
       return;
     } catch (err) {
       console.error("Failed to connect to PostgreSQL. Falling back to local file storage:", err);
-      if (isServerless) {
-        throw new Error("DATABASE_URL is required and must point to a reachable PostgreSQL database.");
+      if (options.requirePersistentDatabase) {
+        throw new Error("A persistent PostgreSQL database is required and must be reachable.");
       }
       usePostgres = false;
       pool = null;
     }
   }
 
-  if (isServerless) {
-    throw new Error("DATABASE_URL is required when running on Netlify or Vercel.");
+  if (options.requirePersistentDatabase) {
+    throw new Error("A persistent PostgreSQL database is required for serverless deployments.");
   }
 
   // Fallback to file storage
