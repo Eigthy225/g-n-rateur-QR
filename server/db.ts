@@ -49,22 +49,26 @@ function saveFileLinks() {
   }
 }
 
-export async function initDatabase(): Promise<void> {
-  const dbUrl = process.env.DATABASE_URL?.trim();
-  const isServerless = Boolean(process.env.NETLIFY || process.env.VERCEL);
+function getDatabaseUrl(): string | undefined {
+  return process.env.DATABASE_URL?.trim() || undefined;
+}
+
+export async function initDatabase(options: { requirePersistentDatabase?: boolean } = {}): Promise<void> {
+  const dbUrl = getDatabaseUrl();
 
   if (dbUrl) {
     try {
       console.log("Connecting to PostgreSQL database...");
       pool = new Pool({
         connectionString: dbUrl,
-        ssl: dbUrl.includes("localhost") ? false : { rejectUnauthorized: false },
+        ssl: dbUrl.includes("localhost") ? false : { rejectUnauthorized: true },
         max: 10,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000,
       });
 
-      // Test connection and create table if not exists
+      // Initialise the schema on the external PostgreSQL provider. The queries
+      // are idempotent, so they are safe on every serverless cold start.
       const client = await pool.connect();
       try {
         await client.query(`
@@ -78,6 +82,7 @@ export async function initDatabase(): Promise<void> {
             last_clicked_at TIMESTAMP WITH TIME ZONE
           );
           CREATE INDEX IF NOT EXISTS idx_links_short_code ON links (short_code);
+          CREATE INDEX IF NOT EXISTS idx_links_created_at ON links (created_at DESC);
         `);
         usePostgres = true;
         console.log("PostgreSQL database connected and schema initialized successfully!");
@@ -87,16 +92,16 @@ export async function initDatabase(): Promise<void> {
       return;
     } catch (err) {
       console.error("Failed to connect to PostgreSQL. Falling back to local file storage:", err);
-      if (isServerless) {
-        throw new Error("DATABASE_URL is required and must point to a reachable PostgreSQL database.");
+      if (options.requirePersistentDatabase) {
+        throw new Error("A persistent PostgreSQL database is required and must be reachable.");
       }
       usePostgres = false;
       pool = null;
     }
   }
 
-  if (isServerless) {
-    throw new Error("DATABASE_URL is required when running on Netlify or Vercel.");
+  if (options.requirePersistentDatabase) {
+    throw new Error("A persistent PostgreSQL database is required for serverless deployments.");
   }
 
   // Fallback to file storage

@@ -5,7 +5,7 @@ import { initDatabase } from "../server/db";
 let databaseReady: Promise<void> | undefined;
 
 function initializeDatabase() {
-  databaseReady ??= initDatabase();
+  databaseReady ??= initDatabase({ requirePersistentDatabase: true });
   return databaseReady;
 }
 
@@ -16,7 +16,7 @@ export default async function handler(req: Request, res: Response) {
   } catch (error) {
     console.error("Database initialization failed:", error);
     return res.status(500).json({
-      error: "Le service de liens est indisponible. Vérifiez la variable DATABASE_URL.",
+      error: "Le service de liens est indisponible. Configurez la base PostgreSQL persistante.",
     });
   }
 }

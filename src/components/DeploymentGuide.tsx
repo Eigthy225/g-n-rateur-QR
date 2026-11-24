@@ -112,7 +112,7 @@ export function DeploymentGuide({ onToast }: DeploymentGuideProps) {
             <p className="text-xs text-slate-500 mt-0.5">
               {dbStatus.database === "postgresql"
                 ? "Vos liens et statistiques sont persistés en base de données SQL relationnelle."
-                : "Les données sont temporairement stockées localement. Définissez DATABASE_URL pour activer PostgreSQL instantanément."}
+                : "Les données sont temporairement stockées localement. Définissez DATABASE_URL avant le déploiement."}
             </p>
           </div>
         </div>
