@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
 import pg from "pg";
-import { getConnectionString } from "@netlify/database";
 
 const { Pool } = pg;
 
@@ -51,19 +50,7 @@ function saveFileLinks() {
 }
 
 function getDatabaseUrl(): string | undefined {
-  const configuredUrl = process.env.DATABASE_URL?.trim() || process.env.NETLIFY_DB_URL?.trim();
-  if (configuredUrl) {
-    return configuredUrl;
-  }
-
-  // Netlify Database chooses the appropriate production or Deploy Preview
-  // branch automatically. Outside of Netlify (for example during local dev),
-  // it may not be configured and simply falls back to local file storage.
-  try {
-    return getConnectionString()?.trim() || undefined;
-  } catch {
-    return undefined;
-  }
+  return process.env.DATABASE_URL?.trim() || undefined;
 }
 
 export async function initDatabase(options: { requirePersistentDatabase?: boolean } = {}): Promise<void> {
@@ -74,19 +61,31 @@ export async function initDatabase(options: { requirePersistentDatabase?: boolea
       console.log("Connecting to PostgreSQL database...");
       pool = new Pool({
         connectionString: dbUrl,
-        ssl: dbUrl.includes("localhost") ? false : { rejectUnauthorized: false },
+        ssl: dbUrl.includes("localhost") ? false : { rejectUnauthorized: true },
         max: 10,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000,
       });
 
-      // Test the connection. The schema is managed by versioned migrations in
-      // netlify/database/migrations (or by schema.sql for another PostgreSQL provider).
+      // Initialise the schema on the external PostgreSQL provider. The queries
+      // are idempotent, so they are safe on every serverless cold start.
       const client = await pool.connect();
       try {
-        await client.query("SELECT 1");
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS links (
+            id VARCHAR(64) PRIMARY KEY,
+            original_url TEXT NOT NULL,
+            short_code VARCHAR(64) UNIQUE NOT NULL,
+            title VARCHAR(255),
+            clicks INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            last_clicked_at TIMESTAMP WITH TIME ZONE
+          );
+          CREATE INDEX IF NOT EXISTS idx_links_short_code ON links (short_code);
+          CREATE INDEX IF NOT EXISTS idx_links_created_at ON links (created_at DESC);
+        `);
         usePostgres = true;
-        console.log("PostgreSQL database connected successfully!");
+        console.log("PostgreSQL database connected and schema initialized successfully!");
       } finally {
         client.release();
       }
