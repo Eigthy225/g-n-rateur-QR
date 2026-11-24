@@ -6,7 +6,7 @@ let databaseReady: Promise<void> | undefined;
 const expressHandler = serverless(app);
 
 function initializeDatabase() {
-  databaseReady ??= initDatabase();
+  databaseReady ??= initDatabase({ requirePersistentDatabase: true });
   return databaseReady;
 }
 
@@ -20,7 +20,7 @@ export const handler = async (event: any, context: any) => {
       statusCode: 500,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        error: "Le service de liens est indisponible. Vérifiez la variable DATABASE_URL.",
+        error: "Le service de liens est indisponible. Configurez la base PostgreSQL persistante.",
       }),
     };
   }
