@@ -1,3 +1,4 @@
+const escapeXml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 import QRCode from "qrcode";
 import { QROptions } from "../types";
 
@@ -757,7 +758,7 @@ export async function generateQRSvgString(
     badgeSvg = `
       <g>
         <circle cx="${badgeCx}" cy="${badgeCy}" r="${badgeRadius}" fill="${options.color.light}" stroke="${dark1}" stroke-width="${Math.max(2, cellSize * 0.22).toFixed(2)}" />
-        <text x="${badgeCx}" y="${badgeCy}" font-family="sans-serif" font-weight="bold" font-size="${fontSize}" text-anchor="middle" dominant-baseline="central" fill="${dark1}">${options.centerIcon}</text>
+        <text x="${badgeCx}" y="${badgeCy}" font-family="sans-serif" font-weight="bold" font-size="${fontSize}" text-anchor="middle" dominant-baseline="central" fill="${dark1}">${escapeXml(options.centerIcon)}</text>
       </g>
     `;
   }
@@ -783,7 +784,7 @@ export async function generateQRSvgString(
     }
 
     bgImageSvg = `
-      <image href="${bg.src}" x="0" y="0" width="${baseSvgSize}" height="${baseSvgSize}" opacity="${opacity}" preserveAspectRatio="xMidYMid slice" />
+      <image href="${escapeXml(bg.src)}" x="0" y="0" width="${baseSvgSize}" height="${baseSvgSize}" opacity="${opacity}" preserveAspectRatio="xMidYMid slice" />
       ${veil && veil !== "none" ? `<rect width="100%" height="100%" fill="${veilColor}" opacity="${veilOpacity}" />` : ""}
       ${eyeHalos}
     `;

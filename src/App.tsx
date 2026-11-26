@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { PasswordGenerator } from "./components/PasswordGenerator";
 import { Header } from "./components/Header";
 import { QrGenerator } from "./components/QrGenerator";
 import { UrlShortener } from "./components/UrlShortener";
@@ -9,7 +10,7 @@ import { ShortLink } from "./types";
 import { QrCode, Link2, ShieldCheck, Zap } from "lucide-react";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"generator" | "shortener" | "history" | "deployment">("generator");
+  const [activeTab, setActiveTab] = useState<"generator" | "shortener" | "history" | "deployment" | "password">("generator");
   const [qrUrl, setQrUrl] = useState<string>("https://google.com");
   const [links, setLinks] = useState<ShortLink[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -26,49 +27,8 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // Fetch stored links from server
-  const fetchLinks = useCallback(async () => {
-    try {
-      const response = await fetch("/api/links");
-      if (response.ok) {
-        const data: ShortLink[] = await response.json();
-        setLinks(data);
-      }
-    } catch (err) {
-      console.warn("Could not fetch links from server, trying localStorage fallback:", err);
-      const saved = localStorage.getItem("app_short_links");
-      if (saved) {
-        try {
-          setLinks(JSON.parse(saved));
-        } catch {
-          // ignore parsing errors
-        }
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchLinks();
-
-    // Check for not_found query parameter
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const err = params.get("error");
-      const code = params.get("code");
-      if (err === "not_found") {
-        addToast("error", `Le lien court /s/${code || ""} n'existe pas ou a expiré.`);
-        // Clean URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
-  }, [fetchLinks, addToast]);
-
-  // Keep local storage synced as fallback
-  useEffect(() => {
-    if (links.length > 0) {
-      localStorage.setItem("app_short_links", JSON.stringify(links));
-    }
-  }, [links]);
+  // Les liens ne sont conservés que pendant cette session ; aucune liste publique.
+  useEffect(() => { setLinks([]); }, []);
 
   const handleLinkCreated = (newLink: ShortLink) => {
     setLinks((prev) => [newLink, ...prev]);
@@ -114,6 +74,8 @@ export default function App() {
             />
           </div>
         )}
+
+        {activeTab === "password" && <PasswordGenerator />}
 
         {activeTab === "shortener" && (
           <div className="flex flex-col gap-6 animate-in fade-in duration-200">
@@ -176,7 +138,7 @@ export default function App() {
             </span>
           </div>
           <p className="text-slate-400 text-center sm:text-right">
-            QR Code & Raccourcisseur d'URL • Conforme ISO/IEC 18004
+            QR Code & Raccourcisseur d'URL • Testez vos codes avant diffusion
           </p>
         </div>
       </footer>

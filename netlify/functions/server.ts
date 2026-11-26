@@ -6,7 +6,7 @@ let databaseReady: Promise<void> | undefined;
 const expressHandler = serverless(app);
 
 function initializeDatabase() {
-  databaseReady ??= initDatabase();
+  databaseReady ??= initDatabase().catch((error) => { databaseReady = undefined; throw error; });
   return databaseReady;
 }
 

@@ -34,6 +34,7 @@ import {
   downloadFile,
   evaluateScanReliability,
 } from "../utils/qrHelper";
+import { QrContent } from "./QrContent";
 import { ColorCustomizationBanner } from "./ColorCustomizationBanner";
 import { BackgroundImageCustomizer } from "./BackgroundImageCustomizer";
 
@@ -220,6 +221,7 @@ export function QrGenerator({
   const [downloadResolution, setDownloadResolution] = useState<number>(1024);
   const [copied, setCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [qrError, setQrError] = useState("");
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -242,8 +244,9 @@ export function QrGenerator({
       setIsGenerating(true);
       try {
         await renderQRToCanvas(canvasRef.current, url.trim(), options);
+        if (active) setQrError("");
       } catch (err) {
-        console.error("Error drawing QR code:", err);
+        if (active) setQrError("Impossible de générer ce QR code. Réduisez le contenu ou choisissez un niveau de correction inférieur.");
       } finally {
         if (active) setIsGenerating(false);
       }
@@ -322,7 +325,7 @@ export function QrGenerator({
       eyeStyle: theme.eyeStyle,
       centerIcon: theme.centerIcon || "",
       backgroundImage: theme.backgroundImage,
-      // Auto-elevate error correction to ensure 100% scan reliability with badge or background image
+      // Auto-elevate error correction to ensure better scan reliability with badge or background image
       errorCorrectionLevel:
         theme.centerIcon || theme.backgroundImage ? "Q" : prev.errorCorrectionLevel,
     }));
@@ -351,13 +354,15 @@ export function QrGenerator({
           }
         : undefined,
     }));
-    onToast("success", "Contraste optimisé automatiquement pour un scan infaillible !");
+    onToast("success", "Contraste amélioré. Testez le QR code avec plusieurs appareils.");
   };
 
   return (
     <div id="qr-generator-root" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Configuration Column (Left) */}
       <div id="qr-config-column" className="lg:col-span-7 flex flex-col gap-6">
+        <QrContent onChange={setUrl} />
+        {qrError && <p role="alert" className="p-3 rounded-lg bg-red-50 text-red-700">{qrError}</p>}
         {/* URL Input Box */}
         <div id="qr-url-box" className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between mb-2.5">
