@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Liens locaux de développement : jamais versionnés
+data/links.json

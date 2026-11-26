@@ -5,7 +5,7 @@ import { initDatabase } from "../server/db";
 let databaseReady: Promise<void> | undefined;
 
 function initializeDatabase() {
-  databaseReady ??= initDatabase();
+  databaseReady ??= initDatabase().catch((error) => { databaseReady = undefined; throw error; });
   return databaseReady;
 }
 

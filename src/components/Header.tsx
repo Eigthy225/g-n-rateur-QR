@@ -1,8 +1,8 @@
-import { QrCode, Link2, Activity, Cloud } from "lucide-react";
+import { QrCode, Link2, Activity, Cloud, KeyRound } from "lucide-react";
 
 interface HeaderProps {
-  activeTab: "generator" | "shortener" | "history" | "deployment";
-  onTabChange: (tab: "generator" | "shortener" | "history" | "deployment") => void;
+  activeTab: "generator" | "shortener" | "history" | "deployment" | "password";
+  onTabChange: (tab: "generator" | "shortener" | "history" | "deployment" | "password") => void;
   totalLinksCount: number;
 }
 
@@ -66,36 +66,8 @@ export function Header({
                 <span>Raccourcisseur</span>
               </button>
 
-              <button
-                id="tab-btn-history"
-                onClick={() => onTabChange("history")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                  activeTab === "history"
-                    ? "bg-white text-indigo-700 shadow-xs border border-slate-200/60 font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Activity className="w-3.5 h-3.5" />
-                <span>Historique</span>
-                {totalLinksCount > 0 && (
-                  <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-100 text-indigo-800 font-bold">
-                    {totalLinksCount}
-                  </span>
-                )}
-              </button>
+              <button onClick={() => onTabChange("password")} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${activeTab === "password" ? "bg-white text-indigo-700" : "text-slate-600"}`}><KeyRound className="w-4 h-4" /> Mots de passe</button>
 
-              <button
-                id="tab-btn-deployment"
-                onClick={() => onTabChange("deployment")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                  activeTab === "deployment"
-                    ? "bg-white text-indigo-700 shadow-xs border border-slate-200/60 font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Cloud className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Déploiement</span>
-              </button>
             </nav>
           </div>
         </div>
@@ -105,7 +77,7 @@ export function Header({
       <nav
         id="mobile-bottom-nav"
         aria-label="Navigation mobile"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-2 py-1 pb-safe shadow-lg grid grid-cols-4 items-center"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-2 py-1 pb-safe shadow-lg grid grid-cols-3 items-center"
       >
         <button
           onClick={() => onTabChange("generator")}
@@ -127,32 +99,8 @@ export function Header({
           <span className="text-[10px] mt-0.5 tracking-tight">Lien court</span>
         </button>
 
-        <button
-          onClick={() => onTabChange("history")}
-          className={`flex flex-col items-center justify-center min-h-[44px] py-1 transition-colors relative ${
-            activeTab === "history" ? "text-indigo-600 font-bold" : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <div className="relative">
-            <Activity className="w-4 h-4" />
-            {totalLinksCount > 0 && (
-              <span className="absolute -top-1 -right-2 px-1 py-0.1 text-[9px] bg-indigo-600 text-white font-bold rounded-full min-w-[14px] text-center leading-tight">
-                {totalLinksCount}
-              </span>
-            )}
-          </div>
-          <span className="text-[10px] mt-0.5 tracking-tight">Historique</span>
-        </button>
+        <button onClick={() => onTabChange("password")} className={`flex flex-col items-center justify-center min-h-[44px] ${activeTab === "password" ? "text-indigo-600" : "text-slate-500"}`}><KeyRound className="w-4 h-4"/><span className="text-[10px]">Mot de passe</span></button>
 
-        <button
-          onClick={() => onTabChange("deployment")}
-          className={`flex flex-col items-center justify-center min-h-[44px] py-1 transition-colors ${
-            activeTab === "deployment" ? "text-indigo-600 font-bold" : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <Cloud className="w-4 h-4" />
-          <span className="text-[10px] mt-0.5 tracking-tight">Déploiement</span>
-        </button>
       </nav>
     </>
   );
